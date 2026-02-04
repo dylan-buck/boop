@@ -1,5 +1,4 @@
 import Foundation
-import Network
 
 protocol SocketServerDelegate: AnyObject {
     func socketServer(_ server: SocketServer, didReceiveMessage message: SocketMessage)
@@ -9,11 +8,11 @@ protocol SocketServerDelegate: AnyObject {
 final class SocketServer {
     weak var delegate: SocketServerDelegate?
 
-    private var listener: NWListener?
-    private var connections: [NWConnection] = []
-    private var connectionBuffers: [ObjectIdentifier: String] = [:]
-    private let queue = DispatchQueue(label: "com.boop.socketserver")
+    private var serverSocket: Int32 = -1
+    private var acceptThread: Thread?
+    private var isRunning = false
     private let socketPath: URL
+    private let queue = DispatchQueue(label: "com.boop.socketserver")
 
     private(set) var isListening: Bool = false {
         didSet {
@@ -30,11 +29,7 @@ final class SocketServer {
     }
 
     func start() throws {
-        // Remove existing socket file if present
         let path = socketPath.path
-        if FileManager.default.fileExists(atPath: path) {
-            try FileManager.default.removeItem(atPath: path)
-        }
 
         // Ensure parent directory exists
         let parentDir = socketPath.deletingLastPathComponent()
@@ -44,43 +39,80 @@ final class SocketServer {
             attributes: nil
         )
 
-        // Create Unix socket endpoint
-        let endpoint = NWEndpoint.unix(path: path)
-
-        // Create parameters for local connections only
-        let parameters = NWParameters()
-        parameters.allowLocalEndpointReuse = true
-        parameters.requiredLocalEndpoint = endpoint
-
-        // Create listener
-        listener = try NWListener(using: parameters)
-
-        listener?.stateUpdateHandler = { [weak self] state in
-            self?.handleListenerState(state)
+        // Remove existing socket file if present
+        if FileManager.default.fileExists(atPath: path) {
+            try FileManager.default.removeItem(atPath: path)
         }
 
-        listener?.newConnectionHandler = { [weak self] connection in
-            self?.handleNewConnection(connection)
+        // Create Unix domain socket
+        serverSocket = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard serverSocket >= 0 else {
+            throw SocketError.createFailed(errno: errno)
         }
 
-        listener?.start(queue: queue)
+        // Set socket options
+        var reuseAddr: Int32 = 1
+        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, socklen_t(MemoryLayout<Int32>.size))
+
+        // Bind to path
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+
+        let pathBytes = path.utf8CString
+        guard pathBytes.count <= MemoryLayout.size(ofValue: addr.sun_path) else {
+            Darwin.close(serverSocket)
+            throw SocketError.pathTooLong
+        }
+
+        withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: pathBytes.count) { dest in
+                for (i, byte) in pathBytes.enumerated() {
+                    dest[i] = byte
+                }
+            }
+        }
+
+        let bindResult = withUnsafePointer(to: &addr) { addrPtr in
+            addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                bind(serverSocket, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+
+        guard bindResult == 0 else {
+            let err = errno
+            Darwin.close(serverSocket)
+            throw SocketError.bindFailed(errno: err)
+        }
 
         // Set file permissions to 0600 (owner read/write only)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o600],
-            ofItemAtPath: path
-        )
+        chmod(path, 0o600)
+
+        // Listen for connections
+        guard listen(serverSocket, 5) == 0 else {
+            let err = errno
+            Darwin.close(serverSocket)
+            throw SocketError.listenFailed(errno: err)
+        }
+
+        isRunning = true
+        isListening = true
+        print("Socket server listening on \(path)")
+
+        // Start accept loop in background thread
+        acceptThread = Thread { [weak self] in
+            self?.acceptLoop()
+        }
+        acceptThread?.name = "BoopSocketAccept"
+        acceptThread?.start()
     }
 
     func stop() {
-        listener?.cancel()
-        listener = nil
+        isRunning = false
 
-        for connection in connections {
-            connection.cancel()
+        if serverSocket >= 0 {
+            Darwin.close(serverSocket)
+            serverSocket = -1
         }
-        connections.removeAll()
-        connectionBuffers.removeAll()
 
         // Clean up socket file
         if FileManager.default.fileExists(atPath: socketPath.path) {
@@ -90,94 +122,86 @@ final class SocketServer {
         isListening = false
     }
 
-    private func handleListenerState(_ state: NWListener.State) {
-        switch state {
-        case .ready:
-            isListening = true
-            print("Socket server listening on \(socketPath.path)")
+    private func acceptLoop() {
+        while isRunning && serverSocket >= 0 {
+            var clientAddr = sockaddr_un()
+            var clientAddrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
 
-        case .failed(let error):
-            isListening = false
-            print("Socket server failed: \(error)")
-            // Try to restart after a delay
-            queue.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                try? self?.start()
+            let clientSocket = withUnsafeMutablePointer(to: &clientAddr) { addrPtr in
+                addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                    accept(serverSocket, sockaddrPtr, &clientAddrLen)
+                }
             }
 
-        case .cancelled:
-            isListening = false
-            print("Socket server cancelled")
+            guard clientSocket >= 0 else {
+                if isRunning {
+                    // Accept failed but we're still running - might be temporary
+                    Thread.sleep(forTimeInterval: 0.1)
+                }
+                continue
+            }
 
-        default:
-            break
+            // Handle client in separate queue
+            queue.async { [weak self] in
+                self?.handleClient(socket: clientSocket)
+            }
         }
     }
 
-    private func handleNewConnection(_ connection: NWConnection) {
-        let connectionId = ObjectIdentifier(connection)
-        connections.append(connection)
-        connectionBuffers[connectionId] = ""
+    private func handleClient(socket clientSocket: Int32) {
+        defer {
+            Darwin.close(clientSocket)
+        }
 
-        connection.stateUpdateHandler = { [weak self] state in
-            switch state {
-            case .ready:
-                self?.receiveData(from: connection)
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        var lineBuffer = ""
 
-            case .failed, .cancelled:
-                self?.removeConnection(connection)
+        while isRunning {
+            let bytesRead = read(clientSocket, &buffer, buffer.count)
 
-            default:
+            if bytesRead <= 0 {
                 break
             }
-        }
 
-        connection.start(queue: queue)
-    }
+            if let chunk = String(bytes: buffer[0..<bytesRead], encoding: .utf8) {
+                lineBuffer += chunk
 
-    private func receiveData(from connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [weak self] data, _, isComplete, error in
-            if let data = data, !data.isEmpty {
-                self?.processData(data, from: connection)
-            }
+                // Process complete lines
+                while let newlineIndex = lineBuffer.firstIndex(of: "\n") {
+                    let line = String(lineBuffer[..<newlineIndex])
+                    lineBuffer = String(lineBuffer[lineBuffer.index(after: newlineIndex)...])
 
-            if isComplete || error != nil {
-                self?.removeConnection(connection)
-            } else {
-                // Continue receiving
-                self?.receiveData(from: connection)
-            }
-        }
-    }
-
-    private func processData(_ data: Data, from connection: NWConnection) {
-        guard let string = String(data: data, encoding: .utf8) else { return }
-
-        let connectionId = ObjectIdentifier(connection)
-
-        // Append to buffer for this connection
-        var buffer = connectionBuffers[connectionId] ?? ""
-        buffer += string
-
-        // Process complete lines
-        while let newlineIndex = buffer.firstIndex(of: "\n") {
-            let line = String(buffer[..<newlineIndex])
-            buffer = String(buffer[buffer.index(after: newlineIndex)...])
-
-            if let message = SocketMessage.parse(line) {
-                DispatchQueue.main.async {
-                    self.delegate?.socketServer(self, didReceiveMessage: message)
+                    if let message = SocketMessage.parse(line) {
+                        DispatchQueue.main.async {
+                            self.delegate?.socketServer(self, didReceiveMessage: message)
+                        }
+                    }
                 }
             }
         }
-
-        // Store remaining partial line
-        connectionBuffers[connectionId] = buffer
     }
 
-    private func removeConnection(_ connection: NWConnection) {
-        let connectionId = ObjectIdentifier(connection)
-        connections.removeAll { $0 === connection }
-        connectionBuffers.removeValue(forKey: connectionId)
-        connection.cancel()
+    deinit {
+        stop()
+    }
+}
+
+enum SocketError: LocalizedError {
+    case createFailed(errno: Int32)
+    case bindFailed(errno: Int32)
+    case listenFailed(errno: Int32)
+    case pathTooLong
+
+    var errorDescription: String? {
+        switch self {
+        case .createFailed(let err):
+            return "Failed to create socket: \(String(cString: strerror(err)))"
+        case .bindFailed(let err):
+            return "Failed to bind socket: \(String(cString: strerror(err)))"
+        case .listenFailed(let err):
+            return "Failed to listen on socket: \(String(cString: strerror(err)))"
+        case .pathTooLong:
+            return "Socket path is too long"
+        }
     }
 }
