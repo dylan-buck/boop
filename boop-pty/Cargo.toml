@@ -1,0 +1,24 @@
+[package]
+name = "boop-pty"
+version = "0.1.0"
+edition = "2021"
+authors = ["Boop Contributors"]
+description = "PTY wrapper for Boop - monitors CLI output for state patterns"
+license = "MIT"
+
+[dependencies]
+portable-pty = "0.8"
+signal-hook = "0.3"
+mio = { version = "1.0", features = ["os-poll", "os-ext"] }
+regex = "1.10"
+strip-ansi-escapes = "0.2"
+thiserror = "2.0"
+nix = { version = "0.29", features = ["term", "signal", "fs"] }
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

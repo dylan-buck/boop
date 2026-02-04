@@ -1,0 +1,27 @@
+# Rust
+/boop-pty/target/
+**/*.rs.bk
+Cargo.lock
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Xcode
+/Boop/build/
+/Boop/DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# IDE
+.idea/
+.vscode/
+
+# Build artifacts
+*.o
+*.a
+*.dylib
