@@ -9,6 +9,7 @@ struct PhoneSetupView: View {
 
     @State private var testResult: Bool?
     @State private var isTesting = false
+    @State private var copiedTopic = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -18,7 +19,7 @@ struct PhoneSetupView: View {
                 .fontWeight(.bold)
 
             // Instructions
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 InstructionStep(
                     number: 1,
                     title: "Install \"ntfy\" from the App Store",
@@ -31,23 +32,43 @@ struct PhoneSetupView: View {
 
                 InstructionStep(
                     number: 2,
-                    title: "Scan this QR code in the ntfy app",
+                    title: "Open ntfy and tap the + button",
+                    action: { EmptyView() }
+                )
+
+                InstructionStep(
+                    number: 3,
+                    title: "Enter this topic name:",
                     action: { EmptyView() }
                 )
             }
             .padding(.horizontal, 40)
 
-            // QR Code
-            VStack(spacing: 12) {
-                QRCodeView(content: configManager.settings.ntfySubscribeURL, size: 180)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(12)
-
-                Text("Topic: \(configManager.settings.ntfy.topic)")
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundColor(.secondary)
+            // Topic name (prominent, copyable)
+            VStack(spacing: 8) {
+                Text(configManager.settings.ntfy.topic)
+                    .font(.system(size: 18, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
                     .textSelection(.enabled)
+
+                Button("Copy Topic") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(configManager.settings.ntfy.topic, forType: .string)
+                    copiedTopic = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        copiedTopic = false
+                    }
+                }
+                .buttonStyle(.link)
+
+                if copiedTopic {
+                    Text("Copied!")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
             }
 
             // Test button

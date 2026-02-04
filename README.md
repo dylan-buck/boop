@@ -43,9 +43,10 @@ Or download the DMG from [GitHub Releases](https://github.com/dylan-buck/boop/re
 ### 3. Connect your phone
 
 1. **Launch Boop** - It appears in your menu bar
-2. **Open the onboarding** - Click the Boop icon → Settings
-3. **Scan the QR code** - Open ntfy app → tap **+** → "Scan QR code"
-4. **Test it** - Click "Send Test Notification" in Boop
+2. **Open ntfy on your iPhone** and tap the **+** button
+3. **Enter the topic name** shown in Boop (e.g., `boop-abc123xyz...`)
+4. **Tap Subscribe**
+5. **Test it** - Click "Send Test Notification" in Boop
 
 You should see a notification on your phone within seconds.
 
