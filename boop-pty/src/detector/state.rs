@@ -2,8 +2,9 @@
 pub enum SessionState {
     Working,
     AwaitingApproval,
-    Completed,
-    Error,
+    Idle,       // Claude is at prompt, ready for input
+    Completed,  // Process exited successfully
+    Error,      // Process exited with error
 }
 
 impl SessionState {
@@ -11,6 +12,7 @@ impl SessionState {
         match self {
             SessionState::Working => "WORKING",
             SessionState::AwaitingApproval => "AWAITING_APPROVAL",
+            SessionState::Idle => "IDLE",
             SessionState::Completed => "COMPLETED",
             SessionState::Error => "ERROR",
         }

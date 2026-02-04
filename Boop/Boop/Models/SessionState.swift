@@ -4,6 +4,7 @@ import SwiftUI
 enum SessionState: String, Codable, CaseIterable {
     case working = "WORKING"
     case awaitingApproval = "AWAITING_APPROVAL"
+    case idle = "IDLE"
     case completed = "COMPLETED"
     case error = "ERROR"
 
@@ -13,6 +14,8 @@ enum SessionState: String, Codable, CaseIterable {
             return "Working"
         case .awaitingApproval:
             return "Waiting for approval"
+        case .idle:
+            return "Ready"
         case .completed:
             return "Completed"
         case .error:
@@ -26,6 +29,8 @@ enum SessionState: String, Codable, CaseIterable {
             return "circle.fill"
         case .awaitingApproval:
             return "circle.fill"
+        case .idle:
+            return "checkmark.circle"
         case .completed:
             return "checkmark.circle.fill"
         case .error:
@@ -39,6 +44,8 @@ enum SessionState: String, Codable, CaseIterable {
             return .green
         case .awaitingApproval:
             return .orange
+        case .idle:
+            return .blue
         case .completed:
             return .green
         case .error:
@@ -50,7 +57,7 @@ enum SessionState: String, Codable, CaseIterable {
         switch self {
         case .awaitingApproval, .completed, .error:
             return true
-        case .working:
+        case .working, .idle:
             return false
         }
     }

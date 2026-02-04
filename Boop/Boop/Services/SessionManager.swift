@@ -14,13 +14,15 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
     private var staleSessionTimer: Timer?
     private let staleSessionCheckInterval: TimeInterval = 60.0 // Check every minute
 
+    private let minWorkingDurationForNotification: TimeInterval = 30.0  // Only notify idle if worked > 30s
+
     var activeSessions: [Session] {
-        sessions.filter { $0.state == .working || $0.state == .awaitingApproval }
+        sessions.filter { $0.state == .working || $0.state == .awaitingApproval || $0.state == .idle }
     }
 
     var recentCompletedSessions: [Session] {
         sessions.filter { session in
-            guard session.state == .completed || session.state == .error else { return false }
+            guard session.state == .completed || session.state == .error || session.state == .idle else { return false }
             let hourAgo = Date().addingTimeInterval(-3600)
             return session.lastUpdateTime > hourAgo
         }
@@ -109,8 +111,8 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
         case .start(let sessionId, let tool, let projectName, let pid):
             handleSessionStart(sessionId: sessionId, tool: tool, projectName: projectName, pid: pid)
 
-        case .state(let sessionId, let state, let details):
-            handleSessionStateChange(sessionId: sessionId, state: state, details: details)
+        case .state(let sessionId, let state, let details, let workingDurationSecs):
+            handleSessionStateChange(sessionId: sessionId, state: state, details: details, workingDurationSecs: workingDurationSecs)
 
         case .end(let sessionId, let exitCode):
             handleSessionEnd(sessionId: sessionId, exitCode: exitCode)
@@ -147,7 +149,7 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
         sessions.insert(session, at: 0)
     }
 
-    private func handleSessionStateChange(sessionId: String, state: SessionState, details: String) {
+    private func handleSessionStateChange(sessionId: String, state: SessionState, details: String, workingDurationSecs: Int?) {
         guard let index = sessions.firstIndex(where: { $0.id == sessionId }) else {
             return
         }
@@ -157,7 +159,7 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
 
         // Trigger notification if state changed to something attention-worthy
         if state != previousState {
-            triggerNotificationIfNeeded(for: sessions[index], previousState: previousState)
+            triggerNotificationIfNeeded(for: sessions[index], previousState: previousState, workingDurationSecs: workingDurationSecs)
         }
     }
 
@@ -171,10 +173,10 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
         sessions[index].updateState(newState, details: "Exit code: \(exitCode)")
 
         // Trigger notification
-        triggerNotificationIfNeeded(for: sessions[index], previousState: previousState)
+        triggerNotificationIfNeeded(for: sessions[index], previousState: previousState, workingDurationSecs: nil)
     }
 
-    private func triggerNotificationIfNeeded(for session: Session, previousState: SessionState) {
+    private func triggerNotificationIfNeeded(for session: Session, previousState: SessionState, workingDurationSecs: Int?) {
         // Don't notify if notifications are paused
         guard !configManager.settings.isPaused else { return }
 
@@ -195,6 +197,27 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
             guard configManager.settings.notifications.error.enabled else { return }
             notificationDispatcher.sendError(session: session)
 
+        case .idle:
+            // Only notify for idle if:
+            // 1. Completed notifications are enabled (idle is similar to completed)
+            // 2. Claude worked long enough to warrant notification (default 30s)
+            // 3. The previous state was working (not transitioning from approval)
+            guard configManager.settings.notifications.completed.enabled else { return }
+            guard previousState == .working else { return }
+
+            // Check if worked long enough for notification
+            let workedLongEnough: Bool
+            if let duration = workingDurationSecs {
+                workedLongEnough = TimeInterval(duration) >= minWorkingDurationForNotification
+            } else {
+                // If we don't have duration info, assume it was long enough
+                workedLongEnough = true
+            }
+
+            if workedLongEnough {
+                notificationDispatcher.sendCompleted(session: session)
+            }
+
         case .working:
             // No notification for working state
             break
@@ -202,7 +225,7 @@ final class SessionManager: ObservableObject, SocketServerDelegate {
     }
 
     func clearCompletedSessions() {
-        sessions.removeAll { $0.state == .completed || $0.state == .error }
+        sessions.removeAll { $0.state == .completed || $0.state == .error || $0.state == .idle }
     }
 
     func removeSession(_ session: Session) {

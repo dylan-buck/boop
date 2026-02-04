@@ -179,10 +179,15 @@ impl PtyHandler {
                     let _ = stdout.flush();
 
                     // Process for state detection
-                    if let Some(new_state) = self.detector.process_output(&buf[..n]) {
+                    if let Some((new_state, working_duration_secs)) = self.detector.process_output(&buf[..n]) {
                         if new_state != last_state {
                             let details = self.detector.get_details();
-                            let state_msg = Message::state(&self.session_id, new_state, &details);
+                            let state_msg = Message::state_with_duration(
+                                &self.session_id,
+                                new_state,
+                                &details,
+                                working_duration_secs,
+                            );
                             let _ = self.ipc.send(&state_msg);
                             last_state = new_state;
                         }

@@ -43,6 +43,8 @@ struct SessionRowView: View {
             return "Working · \(session.formattedDuration)"
         case .awaitingApproval:
             return "Waiting for approval"
+        case .idle:
+            return "Ready · \(session.timeSinceUpdate)"
         case .completed:
             return "Completed · \(session.timeSinceUpdate)"
         case .error:

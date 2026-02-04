@@ -34,6 +34,14 @@ static COMPLETION_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     ]
 });
 
+// Patterns for detecting when Claude Code is idle and waiting for input
+static IDLE_PROMPT_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        // Claude Code input prompt - line starting with > followed by space or end
+        Regex::new(r"^>\s*$").unwrap(),
+    ]
+});
+
 static ERROR_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     vec![
         Regex::new(r"(?i)error:").unwrap(),
@@ -67,6 +75,15 @@ impl PatternMatcher {
         }
         None
     }
+
+    /// Check if the last non-empty line is the idle prompt (> at start of line)
+    pub fn is_idle_prompt(text: &str) -> bool {
+        text.lines()
+            .rev()
+            .find(|line| !line.trim().is_empty())
+            .map(|line| IDLE_PROMPT_PATTERNS.iter().any(|p| p.is_match(line)))
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -94,5 +111,29 @@ mod tests {
         assert!(PatternMatcher::is_error("Error: something went wrong"));
         assert!(PatternMatcher::is_error("Fatal error occurred"));
         assert!(!PatternMatcher::is_error("Everything is fine"));
+    }
+
+    #[test]
+    fn test_idle_prompt_patterns() {
+        // Simple prompt
+        assert!(PatternMatcher::is_idle_prompt(">"));
+        assert!(PatternMatcher::is_idle_prompt("> "));
+        assert!(PatternMatcher::is_idle_prompt(">\n"));
+
+        // Prompt after output
+        assert!(PatternMatcher::is_idle_prompt("Some output\n>"));
+        assert!(PatternMatcher::is_idle_prompt("Some output\n> "));
+        assert!(PatternMatcher::is_idle_prompt("Line 1\nLine 2\n>"));
+
+        // Prompt with trailing whitespace/newlines
+        assert!(PatternMatcher::is_idle_prompt("Output\n>\n"));
+        assert!(PatternMatcher::is_idle_prompt("Output\n> \n\n"));
+
+        // Should NOT match
+        assert!(!PatternMatcher::is_idle_prompt("> ls")); // Command being typed
+        assert!(!PatternMatcher::is_idle_prompt(">command")); // No space
+        assert!(!PatternMatcher::is_idle_prompt("still working...")); // No prompt
+        assert!(!PatternMatcher::is_idle_prompt("")); // Empty
+        assert!(!PatternMatcher::is_idle_prompt("  >  ")); // Indented prompt (not at start of line)
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 enum SocketMessage {
     case start(sessionId: String, tool: String, projectName: String, pid: Int)
-    case state(sessionId: String, state: SessionState, details: String)
+    case state(sessionId: String, state: SessionState, details: String, workingDurationSecs: Int?)
     case end(sessionId: String, exitCode: Int)
     case unknown(raw: String)
 
@@ -15,6 +15,7 @@ enum SocketMessage {
         let state: String?
         let details: String?
         let exitCode: Int?
+        let workingDurationSecs: Int?
 
         enum CodingKeys: String, CodingKey {
             case type
@@ -25,6 +26,7 @@ enum SocketMessage {
             case state
             case details
             case exitCode = "exit_code"
+            case workingDurationSecs = "working_duration_secs"
         }
     }
 
@@ -65,7 +67,8 @@ enum SocketMessage {
             return .state(
                 sessionId: json.sessionId,
                 state: state,
-                details: json.details ?? ""
+                details: json.details ?? "",
+                workingDurationSecs: json.workingDurationSecs
             )
 
         case "END":
@@ -113,7 +116,8 @@ enum SocketMessage {
             return .state(
                 sessionId: parts[1],
                 state: state,
-                details: details
+                details: details,
+                workingDurationSecs: nil  // Legacy format doesn't support this
             )
 
         case "END":

@@ -14,6 +14,7 @@ pub enum Message {
         session_id: String,
         state: SessionState,
         details: String,
+        working_duration_secs: Option<u64>,  // Duration spent in working state before this state change
     },
     End {
         session_id: String,
@@ -38,6 +39,8 @@ struct JsonMessage {
     details: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    working_duration_secs: Option<u64>,  // Duration spent in working state before this state change
 }
 
 impl Message {
@@ -55,6 +58,16 @@ impl Message {
             session_id: session_id.to_string(),
             state,
             details: details.to_string(),
+            working_duration_secs: None,
+        }
+    }
+
+    pub fn state_with_duration(session_id: &str, state: SessionState, details: &str, working_duration_secs: Option<u64>) -> Self {
+        Self::State {
+            session_id: session_id.to_string(),
+            state,
+            details: details.to_string(),
+            working_duration_secs,
         }
     }
 
@@ -81,11 +94,13 @@ impl Message {
                 state: None,
                 details: None,
                 exit_code: None,
+                working_duration_secs: None,
             },
             Message::State {
                 session_id,
                 state,
                 details,
+                working_duration_secs,
             } => JsonMessage {
                 msg_type: "STATE".to_string(),
                 session_id: session_id.clone(),
@@ -95,6 +110,7 @@ impl Message {
                 state: Some(state.as_str().to_string()),
                 details: Some(details.clone()),
                 exit_code: None,
+                working_duration_secs: *working_duration_secs,
             },
             Message::End {
                 session_id,
@@ -108,6 +124,7 @@ impl Message {
                 state: None,
                 details: None,
                 exit_code: Some(*exit_code),
+                working_duration_secs: None,
             },
         };
         format!("{}\n", serde_json::to_string(&json).unwrap())
