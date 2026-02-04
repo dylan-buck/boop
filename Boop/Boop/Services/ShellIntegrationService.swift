@@ -76,16 +76,15 @@ final class ShellIntegrationService: ObservableObject {
 
     private func detectCurrentShell() {
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        if shell.contains("bash") {
-            detectedShell = .bash
-        } else {
-            detectedShell = .zsh
+        let detected: ShellType = shell.contains("bash") ? .bash : .zsh
+        DispatchQueue.main.async {
+            self.detectedShell = detected
         }
     }
 
     func refreshStatus() {
         // Check if PTY binary exists
-        isPTYBinaryInstalled = fileManager.fileExists(atPath: ptyBinaryPath.path)
+        let binaryExists = fileManager.fileExists(atPath: ptyBinaryPath.path)
 
         var installed: [ShellType] = []
         var missing: [ShellType] = []
@@ -98,15 +97,22 @@ final class ShellIntegrationService: ObservableObject {
             }
         }
 
-        // Check if hooks are installed but binary is missing
-        if !installed.isEmpty && !isPTYBinaryInstalled {
-            status = .missingBinary
+        // Determine new status
+        let newStatus: ShellIntegrationStatus
+        if !installed.isEmpty && !binaryExists {
+            newStatus = .missingBinary
         } else if installed.isEmpty {
-            status = .notInstalled
+            newStatus = .notInstalled
         } else if missing.isEmpty {
-            status = .installed
+            newStatus = .installed
         } else {
-            status = .partial(installed: installed, missing: missing)
+            newStatus = .partial(installed: installed, missing: missing)
+        }
+
+        // Update on main thread
+        DispatchQueue.main.async {
+            self.isPTYBinaryInstalled = binaryExists
+            self.status = newStatus
         }
     }
 
@@ -204,7 +210,7 @@ final class ShellIntegrationService: ObservableObject {
                     ofItemAtPath: destinationPath.path
                 )
 
-                isPTYBinaryInstalled = true
+                DispatchQueue.main.async { self.isPTYBinaryInstalled = true }
                 return
             }
         }
@@ -227,7 +233,7 @@ final class ShellIntegrationService: ObservableObject {
                 ofItemAtPath: destinationPath.path
             )
 
-            isPTYBinaryInstalled = true
+            DispatchQueue.main.async { self.isPTYBinaryInstalled = true }
             return
         }
 
@@ -249,7 +255,7 @@ final class ShellIntegrationService: ObservableObject {
                     ofItemAtPath: destinationPath.path
                 )
 
-                isPTYBinaryInstalled = true
+                DispatchQueue.main.async { self.isPTYBinaryInstalled = true }
                 print("Installed boop-pty from development build: \(devPath.path)")
                 return
             }
@@ -258,7 +264,7 @@ final class ShellIntegrationService: ObservableObject {
         // Binary not found anywhere
         print("Warning: boop-pty binary not found in bundle or development paths")
         print("The shell hooks will fall back to running commands without monitoring")
-        isPTYBinaryInstalled = false
+        DispatchQueue.main.async { self.isPTYBinaryInstalled = false }
     }
 
     private func installHookIn(shell: ShellType) throws {
