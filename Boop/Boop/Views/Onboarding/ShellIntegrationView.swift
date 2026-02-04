@@ -8,6 +8,7 @@ struct ShellIntegrationView: View {
 
     @State private var isInstalling = false
     @State private var installError: String?
+    @State private var installSuccess = false
     @State private var showFullChanges = false
 
     var body: some View {
@@ -58,21 +59,35 @@ struct ShellIntegrationView: View {
             }
 
             if let error = installError {
-                Text(error)
-                    .font(.system(size: 13))
-                    .foregroundColor(.red)
+                HStack(spacing: 8) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red)
+                    Text(error)
+                }
+                .font(.system(size: 13))
+                .foregroundColor(.red)
+            }
+
+            if installSuccess {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Installed successfully!")
+                }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.green)
             }
 
             // Warning
             HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-                Text("Restart your terminal after installation")
+                Image(systemName: installSuccess ? "arrow.clockwise" : "exclamationmark.triangle.fill")
+                    .foregroundColor(installSuccess ? .blue : .orange)
+                Text(installSuccess ? "Now restart your terminal to activate" : "Restart your terminal after installation")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(installSuccess ? .primary : .secondary)
             }
             .padding()
-            .background(Color.orange.opacity(0.1))
+            .background(installSuccess ? Color.blue.opacity(0.1) : Color.orange.opacity(0.1))
             .cornerRadius(8)
             .padding(.horizontal, 40)
 
@@ -148,16 +163,22 @@ struct ShellIntegrationView: View {
     }
 
     private func installHooks() {
+        print("[Boop] Install button clicked")
         isInstalling = true
         installError = nil
+        installSuccess = false
 
         DispatchQueue.global(qos: .userInitiated).async {
+            print("[Boop] Starting hook installation...")
             do {
                 try shellService.installHooks()
+                print("[Boop] Hook installation succeeded")
                 DispatchQueue.main.async {
                     isInstalling = false
+                    installSuccess = true
                 }
             } catch {
+                print("[Boop] Hook installation failed: \(error)")
                 DispatchQueue.main.async {
                     installError = error.localizedDescription
                     isInstalling = false

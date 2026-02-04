@@ -127,17 +127,26 @@ final class ShellIntegrationService: ObservableObject {
     }
 
     func installHooks(for shell: ShellType? = nil) throws {
+        print("[Boop] installHooks() called")
+
         // Copy hook files from bundle to ~/.boop/
+        print("[Boop] Copying hook files...")
         try copyHookFiles()
+        print("[Boop] Hook files copied")
 
         // Copy PTY binary from bundle to ~/.boop/bin/
+        print("[Boop] Copying PTY binary...")
         try copyPTYBinary()
+        print("[Boop] PTY binary copied")
 
         // Install in specified shell or detected shell
         let targetShell = shell ?? detectedShell
+        print("[Boop] Installing hook in \(targetShell.rawValue)...")
         try installHookIn(shell: targetShell)
+        print("[Boop] Hook installed in shell config")
 
         refreshStatus()
+        print("[Boop] Installation complete")
     }
 
     func installAllHooks() throws {
@@ -155,9 +164,14 @@ final class ShellIntegrationService: ObservableObject {
         try configManager.ensureDirectoryExists()
 
         for shellType in ShellType.allCases {
+            print("[Boop] Looking for \(shellType.hookFile) in bundle...")
             guard let bundlePath = Bundle.main.path(forResource: shellType.hookFile, ofType: nil) else {
+                print("[Boop] ERROR: \(shellType.hookFile) not found in bundle!")
+                print("[Boop] Bundle path: \(Bundle.main.bundlePath)")
+                print("[Boop] Resource path: \(Bundle.main.resourcePath ?? "nil")")
                 throw ShellIntegrationError.hookFileNotFound(shellType.hookFile)
             }
+            print("[Boop] Found at: \(bundlePath)")
 
             let destinationPath = boopDirectory.appendingPathComponent(shellType.hookFile)
 
