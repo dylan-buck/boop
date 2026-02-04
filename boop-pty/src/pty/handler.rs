@@ -2,13 +2,13 @@ use crate::detector::{SessionState, StateDetector};
 use crate::error::{BoopError, Result};
 use crate::ipc::{IpcClient, Message};
 use crate::pty::resize::{get_terminal_size, set_terminal_size};
-use mio::{Events, Interest, Poll, Token};
 use mio::unix::SourceFd;
+use mio::{Events, Interest, Poll, Token};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use signal_hook::consts::signal::SIGWINCH;
 use signal_hook::iterator::Signals;
 use std::io::{Read, Write};
-use std::os::fd::{AsRawFd, BorrowedFd};
+use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -107,9 +107,9 @@ impl PtyHandler {
             }
         });
 
-        // Set stdin to raw mode
+        // Set stdin to raw mode (restoration handled globally by signal/panic handlers)
         let stdin = std::io::stdin();
-        let _raw_guard = RawModeGuard::new();
+        crate::terminal::set_raw_mode();
 
         // Thread to read from stdin and write to PTY using poll for non-blocking
         let running_stdin = running.clone();
@@ -218,51 +218,5 @@ impl PtyHandler {
         let _ = stdin_handle.join();
 
         Ok(exit_code)
-    }
-}
-
-struct RawModeGuard {
-    original_termios: Option<nix::sys::termios::Termios>,
-    fd: i32,
-}
-
-impl RawModeGuard {
-    fn new() -> Self {
-        use nix::sys::termios::{tcgetattr, tcsetattr, SetArg, LocalFlags, InputFlags};
-
-        let fd = std::io::stdin().as_raw_fd();
-        // SAFETY: stdin fd is valid for the duration of the program
-        let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
-        let original = tcgetattr(borrowed).ok();
-
-        if let Some(ref orig) = original {
-            let mut raw = orig.clone();
-            // Disable canonical mode and echo
-            raw.local_flags.remove(LocalFlags::ICANON);
-            raw.local_flags.remove(LocalFlags::ECHO);
-            raw.local_flags.remove(LocalFlags::ISIG);
-            raw.input_flags.remove(InputFlags::IXON);
-            raw.input_flags.remove(InputFlags::ICRNL);
-
-            // SAFETY: stdin fd is valid for the duration of the program
-            let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
-            let _ = tcsetattr(borrowed, SetArg::TCSANOW, &raw);
-        }
-
-        Self {
-            original_termios: original,
-            fd,
-        }
-    }
-}
-
-impl Drop for RawModeGuard {
-    fn drop(&mut self) {
-        if let Some(ref original) = self.original_termios {
-            use nix::sys::termios::{tcsetattr, SetArg};
-            // SAFETY: stdin fd is valid for the duration of the program
-            let borrowed = unsafe { BorrowedFd::borrow_raw(self.fd) };
-            let _ = tcsetattr(borrowed, SetArg::TCSANOW, original);
-        }
     }
 }

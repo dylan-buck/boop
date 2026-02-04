@@ -2,9 +2,12 @@ mod detector;
 mod error;
 mod ipc;
 mod pty;
+mod terminal;
 
 use crate::error::{BoopError, Result};
 use crate::pty::PtyHandler;
+use signal_hook::consts::signal::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::iterator::Signals;
 use std::env;
 use std::process;
 
@@ -78,9 +81,37 @@ fn run() -> Result<i32> {
 }
 
 fn main() {
+    // Save original terminal settings FIRST
+    terminal::save_terminal_settings();
+
+    // Set up panic hook to restore terminal
+    let default_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        terminal::restore_terminal_settings();
+        default_panic(info);
+    }));
+
+    // Set up signal handler thread
+    std::thread::spawn(|| {
+        if let Ok(mut signals) = Signals::new([SIGTERM, SIGINT, SIGHUP]) {
+            for sig in signals.forever() {
+                terminal::restore_terminal_settings();
+                // Re-raise signal with default handler
+                unsafe {
+                    libc::signal(sig, libc::SIG_DFL);
+                    libc::raise(sig);
+                }
+            }
+        }
+    });
+
     match run() {
-        Ok(exit_code) => process::exit(exit_code),
+        Ok(exit_code) => {
+            terminal::restore_terminal_settings();
+            process::exit(exit_code)
+        }
         Err(e) => {
+            terminal::restore_terminal_settings();
             eprintln!("boop-pty error: {}", e);
             process::exit(1);
         }
