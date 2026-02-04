@@ -87,11 +87,6 @@ impl OutputBuffer {
             .find(|(_, ts)| now.duration_since(*ts) < LINE_TTL)
             .map(|(line, _)| line.as_str())
     }
-
-    pub fn clear(&mut self) {
-        self.buffer.clear();
-        self.recent_lines.clear();
-    }
 }
 
 impl Default for OutputBuffer {

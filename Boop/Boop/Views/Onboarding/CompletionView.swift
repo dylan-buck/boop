@@ -4,12 +4,12 @@ struct CompletionView: View {
     let onFinish: () -> Void
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 24) {
             Spacer()
 
             // Success icon
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
+                .font(.system(size: 64))
                 .foregroundColor(.green)
 
             // Title
@@ -23,9 +23,9 @@ struct CompletionView: View {
                 .foregroundColor(.secondary)
 
             // Menu bar indicator
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Image(systemName: "circle.fill")
-                    .font(.title)
+                    .font(.title2)
                     .foregroundColor(.green)
 
                 Text("Look for this icon")
@@ -33,13 +33,14 @@ struct CompletionView: View {
                     .foregroundColor(.secondary)
 
                 Image(systemName: "arrow.up")
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
 
             Spacer()
 
             // Next steps
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Next steps:")
                     .font(.headline)
 
@@ -68,13 +69,13 @@ struct CompletionView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(.vertical, 12)
                     .background(Color.blue)
                     .cornerRadius(10)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 40)
-            .padding(.bottom, 20)
+            .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

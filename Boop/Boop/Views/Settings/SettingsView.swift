@@ -9,6 +9,8 @@ struct SettingsView: View {
 
     @State private var showingQRCode = false
     @State private var testNotificationResult: Bool?
+    @State private var showingResetConfirmation = false
+    @State private var copiedTopic = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +36,7 @@ struct SettingsView: View {
                     monitoredToolsSection
                     shellIntegrationSection
                     generalSection
+                    developerSection
                     aboutSection
                 }
                 .padding()
@@ -45,26 +48,35 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Phone Notifications Section
+    // MARK: - Notification Channel Section
 
     private var phoneNotificationsSection: some View {
-        SettingsSection(title: "PHONE NOTIFICATIONS") {
+        SettingsSection(title: "NOTIFICATION CHANNEL") {
             VStack(alignment: .leading, spacing: 12) {
+                // Status
                 HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Connected")
+                    Image(systemName: notificationDispatcher.connectionHealthy ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundColor(notificationDispatcher.connectionHealthy ? .green : .orange)
+                    Text(notificationDispatcher.connectionHealthy ? "ntfy server reachable" : "Checking ntfy...")
                         .foregroundColor(.secondary)
                 }
 
+                // Topic with copy button
                 HStack {
                     Text("Topic:")
                         .foregroundColor(.secondary)
                     Text(configManager.settings.ntfy.topic)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
+                    Button(action: copyTopic) {
+                        Image(systemName: copiedTopic ? "checkmark" : "doc.on.doc")
+                            .foregroundColor(copiedTopic ? .green : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy topic to clipboard")
                 }
 
+                // Actions
                 HStack(spacing: 12) {
                     Button("Show QR Code") {
                         showingQRCode = true
@@ -74,22 +86,44 @@ struct SettingsView: View {
                         sendTestNotification()
                     }
                     .disabled(notificationDispatcher.isTestingConnection)
-
-                    Button("Regenerate Topic") {
-                        configManager.regenerateTopic()
-                    }
                 }
 
+                // Test result
                 if let result = testNotificationResult {
                     HStack {
                         Image(systemName: result ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundColor(result ? .green : .red)
-                        Text(result ? "Test notification sent!" : "Failed to send")
+                        Text(result ? "Sent! Check your phone." : "Failed to send")
                             .foregroundColor(.secondary)
                     }
                     .font(.system(size: 12))
                 }
+
+                Divider()
+
+                // Explanation
+                Text("Scan the QR code on any device to receive notifications. Multiple devices can subscribe to the same channel.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+
+                // Reset button
+                Button("Reset Channel") {
+                    showingResetConfirmation = true
+                }
+                .foregroundColor(.red)
+
+                Text("Generates a new topic. All devices must re-scan.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
             }
+        }
+        .alert("Reset Notification Channel?", isPresented: $showingResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                configManager.regenerateTopic()
+            }
+        } message: {
+            Text("This will generate a new topic. All devices will need to re-scan the QR code to receive notifications.")
         }
     }
 
@@ -263,6 +297,29 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Developer Section
+
+    #if DEBUG
+    private var developerSection: some View {
+        SettingsSection(title: "DEVELOPER") {
+            VStack(alignment: .leading, spacing: 8) {
+                Button("Reset Onboarding") {
+                    configManager.settings.onboardingComplete = false
+                    NSApplication.shared.terminate(nil)
+                }
+
+                Text("App will quit. Relaunch to see onboarding.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    #else
+    private var developerSection: some View {
+        EmptyView()
+    }
+    #endif
+
     // MARK: - About Section
 
     private var aboutSection: some View {
@@ -318,6 +375,15 @@ struct SettingsView: View {
             await MainActor.run {
                 testNotificationResult = result
             }
+        }
+    }
+
+    private func copyTopic() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(configManager.settings.ntfy.topic, forType: .string)
+        copiedTopic = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            copiedTopic = false
         }
     }
 }

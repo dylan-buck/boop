@@ -39,7 +39,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		8D0000003000000000000001 /* Boop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Boop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D0000002000000000000001 /* BoopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoopApp.swift; sourceTree = "<group>"; };
 		8D0000002000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		8D0000002000000000000003 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
@@ -71,6 +70,7 @@
 		8D0000002000000000000029 /* hook.bash */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = hook.bash; sourceTree = "<group>"; };
 		8D0000002000000000000030 /* Boop.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Boop.entitlements; sourceTree = "<group>"; };
 		8D0000002000000000000031 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8D0000003000000000000001 /* Boop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Boop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,7 +247,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					8D0000006000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
@@ -303,7 +303,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "#!/bin/bash\nset -e\n\nBOOP_PTY_ROOT=\"${SRCROOT}/../boop-pty\"\nCARGO_TARGET_DIR=\"${BUILT_PRODUCTS_DIR}/../../boop-pty-build\"\n\n# Check if cargo is available\nif ! command -v cargo &> /dev/null; then\n    echo \"warning: cargo not found, skipping boop-pty build\"\n    exit 0\nfi\n\nif [[ \"${CONFIGURATION}\" == \"Release\" ]]; then\n    cargo build --manifest-path \"${BOOP_PTY_ROOT}/Cargo.toml\" \\\n        --release --target-dir \"${CARGO_TARGET_DIR}\"\n    BINARY=\"${CARGO_TARGET_DIR}/release/boop-pty\"\nelse\n    cargo build --manifest-path \"${BOOP_PTY_ROOT}/Cargo.toml\" \\\n        --target-dir \"${CARGO_TARGET_DIR}\"\n    BINARY=\"${CARGO_TARGET_DIR}/debug/boop-pty\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/MacOS\"\ncp \"${BINARY}\" \"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/MacOS/boop-pty\"\n";
+			shellScript = "#!/bin/bash\nset -e\n\n# Add cargo to PATH (Xcode doesn't inherit shell profile)\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\n\nBOOP_PTY_ROOT=\"${SRCROOT}/../boop-pty\"\nCARGO_TARGET_DIR=\"${BUILT_PRODUCTS_DIR}/../../boop-pty-build\"\n\n# Check if cargo is available\nif ! command -v cargo &> /dev/null; then\n    echo \"warning: cargo not found, skipping boop-pty build\"\n    exit 0\nfi\n\nif [[ \"${CONFIGURATION}\" == \"Release\" ]]; then\n    cargo build --manifest-path \"${BOOP_PTY_ROOT}/Cargo.toml\" \\\n        --release --target-dir \"${CARGO_TARGET_DIR}\"\n    BINARY=\"${CARGO_TARGET_DIR}/release/boop-pty\"\nelse\n    cargo build --manifest-path \"${BOOP_PTY_ROOT}/Cargo.toml\" \\\n        --target-dir \"${CARGO_TARGET_DIR}\"\n    BINARY=\"${CARGO_TARGET_DIR}/debug/boop-pty\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/MacOS\"\ncp \"${BINARY}\" \"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/MacOS/boop-pty\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -353,8 +353,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Boop/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
@@ -382,8 +385,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Boop/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
@@ -435,9 +441,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -457,6 +465,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -495,9 +504,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -510,6 +521,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
@@ -537,7 +549,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = 8D0000008000000000000001 /* Project object */;
 }

@@ -9,7 +9,6 @@ pub use state::SessionState;
 use std::time::{Duration, Instant};
 
 const STATE_DEBOUNCE_MS: u64 = 500;
-const MIN_WORKING_DURATION_SECS: u64 = 30;
 
 pub struct StateDetector {
     current_state: SessionState,
@@ -101,10 +100,6 @@ impl StateDetector {
         SessionState::Working
     }
 
-    pub fn current_state(&self) -> SessionState {
-        self.current_state
-    }
-
     pub fn get_details(&self) -> String {
         if let Some(line) = self.buffer.get_last_line() {
             // Truncate if too long
@@ -116,25 +111,6 @@ impl StateDetector {
         } else {
             String::new()
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.current_state = SessionState::Working;
-        self.buffer.clear();
-        self.pending_state = None;
-        self.working_started = Some(Instant::now());
-    }
-
-    /// Returns the duration Claude has been in the Working state, if currently working
-    pub fn working_duration(&self) -> Option<Duration> {
-        self.working_started.map(|start| Instant::now().duration_since(start))
-    }
-
-    /// Returns true if Claude has been working long enough to warrant a notification
-    pub fn worked_long_enough_for_notification(&self) -> bool {
-        self.working_started
-            .map(|start| Instant::now().duration_since(start) >= Duration::from_secs(MIN_WORKING_DURATION_SECS))
-            .unwrap_or(false)
     }
 }
 

@@ -14,9 +14,12 @@ struct PhoneSetupView: View {
     var body: some View {
         VStack(spacing: 24) {
             // Header
-            Text("Connect Your iPhone")
+            Text("Set Up Notifications")
                 .font(.largeTitle)
                 .fontWeight(.bold)
+
+            Text("Receive notifications on any device with ntfy")
+                .foregroundColor(.secondary)
 
             // Instructions
             VStack(alignment: .leading, spacing: 16) {
@@ -95,6 +98,12 @@ struct PhoneSetupView: View {
                     .foregroundColor(.secondary)
                 }
             }
+
+            // Multiple devices note
+            Text("Multiple devices can subscribe to the same topic.")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 40)
 
             Spacer()
 

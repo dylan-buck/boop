@@ -67,15 +67,6 @@ impl PatternMatcher {
         ERROR_PATTERNS.iter().any(|pattern| pattern.is_match(text))
     }
 
-    pub fn get_approval_match(text: &str) -> Option<&str> {
-        for pattern in APPROVAL_PATTERNS.iter() {
-            if let Some(m) = pattern.find(text) {
-                return Some(m.as_str());
-            }
-        }
-        None
-    }
-
     /// Check if the last non-empty line is the idle prompt (> at start of line)
     pub fn is_idle_prompt(text: &str) -> bool {
         text.lines()

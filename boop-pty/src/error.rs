@@ -13,9 +13,6 @@ pub enum BoopError {
 
     #[error("Invalid arguments: {0}")]
     InvalidArgs(String),
-
-    #[error("Signal error: {0}")]
-    Signal(String),
 }
 
 pub type Result<T> = std::result::Result<T, BoopError>;

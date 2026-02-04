@@ -27,6 +27,10 @@ struct ConnectionStatusView: View {
                             .foregroundColor(.secondary.opacity(0.7))
                     }
                 }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 10))
             }
         }
         .font(.system(size: 12))
@@ -47,6 +51,8 @@ struct ConnectionStatusView: View {
     private var statusColor: Color {
         if !sessionManager.isConnected {
             return .red
+        } else if notificationDispatcher.lastError != nil {
+            return .orange
         } else if notificationDispatcher.connectionHealthy {
             return .green
         } else {
@@ -57,10 +63,10 @@ struct ConnectionStatusView: View {
     private var statusText: String {
         if !sessionManager.isConnected {
             return "Socket disconnected"
-        } else if notificationDispatcher.connectionHealthy {
-            return "Connected to ntfy"
         } else if let error = notificationDispatcher.lastError {
-            return "ntfy error: \(error)"
+            return "ntfy: \(error)"
+        } else if notificationDispatcher.connectionHealthy {
+            return "ntfy ready"
         } else {
             return "Checking ntfy..."
         }

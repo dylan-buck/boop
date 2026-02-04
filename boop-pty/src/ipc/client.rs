@@ -16,10 +16,6 @@ impl IpcClient {
         Self { socket_path }
     }
 
-    pub fn with_path(socket_path: PathBuf) -> Self {
-        Self { socket_path }
-    }
-
     pub fn send(&self, message: &Message) -> Result<()> {
         // Try to connect with timeout
         let stream = match UnixStream::connect(&self.socket_path) {
@@ -47,10 +43,6 @@ impl IpcClient {
         })?;
 
         Ok(())
-    }
-
-    pub fn is_available(&self) -> bool {
-        self.socket_path.exists()
     }
 }
 

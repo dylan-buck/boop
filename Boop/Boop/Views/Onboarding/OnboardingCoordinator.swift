@@ -17,7 +17,7 @@ struct OnboardingCoordinator: View {
         VStack(spacing: 0) {
             // Progress indicator
             progressIndicator
-                .padding(.top, 16)
+                .padding(.top, 32)
 
             // Content
             Group {
